@@ -70,9 +70,11 @@ interface TableCardHeaderProps {
     contentTrailing?: ReactNode;
     /** The class name of the table card header. */
     className?: string;
+    /** The class name of the title element. */
+    titleClassName?: string;
 }
 
-const TableCardHeader = ({ title, badge, description, contentTrailing, className }: TableCardHeaderProps) => {
+const TableCardHeader = ({ title, badge, description, contentTrailing, className, titleClassName }: TableCardHeaderProps) => {
     const { size } = useContext(TableContext);
 
     return (
@@ -85,7 +87,7 @@ const TableCardHeader = ({ title, badge, description, contentTrailing, className
         >
             <div className="flex flex-1 flex-col gap-0.5">
                 <div className="flex items-center gap-2">
-                    <h2 className="text-md font-semibold text-primary">{title}</h2>
+                    <h2 className={cx("text-md font-semibold text-primary", titleClassName)}>{title}</h2>
                     {badge ? (
                         isValidElement(badge) ? (
                             badge

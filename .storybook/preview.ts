@@ -70,6 +70,7 @@ export const parameters = {
                 ["Miscellaneous assets"],
                 "Application",
                 [
+                    "Tessen",
                     "Application navigation",
                     "Modals",
                     "Command menus",

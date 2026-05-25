@@ -1,10 +1,17 @@
 import React, { useEffect } from "react";
-import { Inter } from "next/font/google";
+import { Instrument_Serif, Inter } from "next/font/google";
 
 const inter = Inter({
     subsets: ["latin"],
     display: "swap",
     variable: "--font-inter",
+});
+
+const instrumentSerif = Instrument_Serif({
+    subsets: ["latin"],
+    display: "swap",
+    variable: "--font-instrument-serif",
+    weight: "400",
 });
 
 const Wrapper = (Story: any) => {
@@ -47,7 +54,7 @@ const Wrapper = (Story: any) => {
     }, []);
 
     return (
-        <div className={inter.variable}>
+        <div className={`${inter.variable} ${instrumentSerif.variable}`}>
             <Story />
         </div>
     );

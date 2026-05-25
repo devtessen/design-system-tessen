@@ -1,5 +1,5 @@
 const untitledThemes = [
-    { name: "Brand", class: "untitled-brand", color: "#9e77ed" },
+    { name: "Brand", class: "untitled-brand", color: "#FF005E" },
     { name: "Error", class: "untitled-error", color: "#f04438" },
     { name: "Warning", class: "untitled-warning", color: "#f79009" },
     { name: "Success", class: "untitled-success", color: "#12b76a" },

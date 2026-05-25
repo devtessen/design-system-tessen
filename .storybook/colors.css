@@ -1,18 +1,18 @@
 /*****************  UNTITLEDUI COLOR ******************/
 
 .untitled-brand {
-    --color-brand-25: rgb(252 250 255);
-    --color-brand-50: rgb(249 245 255);
-    --color-brand-100: rgb(244 235 255);
-    --color-brand-200: rgb(233 215 254);
-    --color-brand-300: rgb(214 187 251);
-    --color-brand-400: rgb(182 146 246);
-    --color-brand-500: rgb(158 119 237);
-    --color-brand-600: rgb(127 86 217);
-    --color-brand-700: rgb(105 65 198);
-    --color-brand-800: rgb(83 56 158);
-    --color-brand-900: rgb(66 48 125);
-    --color-brand-950: rgb(44 28 95);
+    --color-brand-25: rgb(255 250 252);
+    --color-brand-50: rgb(255 245 249);
+    --color-brand-100: rgb(255 228 240);
+    --color-brand-200: rgb(255 204 224);
+    --color-brand-300: rgb(255 153 196);
+    --color-brand-400: rgb(255 77 145);
+    --color-brand-500: rgb(255 26 118);
+    --color-brand-600: rgb(255 0 94);
+    --color-brand-700: rgb(219 0 81);
+    --color-brand-800: rgb(181 0 67);
+    --color-brand-900: rgb(147 0 55);
+    --color-brand-950: rgb(97 0 36);
 }
 
 .untitled-gray-light-mode {
