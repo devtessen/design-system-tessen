@@ -1,36 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Edit05, Send01, Settings01, Stars02, Trash01 } from "@untitledui/icons";
-import { AssumeAttendanceBanner } from "@/components/application/tessen/assume-attendance-banner";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { MessageChatCircle, Send01, Settings01 } from "@untitledui/icons";
 import { ContactDetailsModal } from "@/components/application/tessen/contact-details-modal";
-import { ConversationContextSidebar } from "@/components/application/tessen/conversation-context-sidebar";
-import { MessageDeliveryIndicator } from "@/components/application/tessen/message-delivery-status";
 import { TabList, Tabs } from "@/components/application/tabs/tabs";
 import {
     conversationMessages,
-    conversationNeedsAssumeAttendance,
     sortConversationsByPriority,
     type Conversation,
     type ConversationStatus,
     type Message,
 } from "@/components/application/tessen/tessen-data";
-import { ConfidenceBadge, StatusBadge } from "@/components/application/tessen/tessen-badges";
+import { StatusBadge } from "@/components/application/tessen/tessen-badges";
 import { tessenTypography } from "@/components/application/tessen/tessen-typography";
 import { Avatar } from "@/components/base/avatar/avatar";
 import { BadgeWithDot } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
-import { Dropdown } from "@/components/base/dropdown/dropdown";
 import { TextArea } from "@/components/base/textarea/textarea";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
+import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 import { cx } from "@/utils/cx";
 
 const listTabs = [
     { id: "new", label: "Novos" },
     { id: "pending", label: "Pendentes" },
 ];
-
-type ResponseMode = "atendente" | "ia" | "nota";
 
 const STATUS_GROUP_LABELS: Partial<Record<ConversationStatus, string>> = {
     aguardando: "Aguardando",
@@ -39,17 +33,11 @@ const STATUS_GROUP_LABELS: Partial<Record<ConversationStatus, string>> = {
     humano: "Em atendimento",
 };
 
+const simulatedAiReply = "Encontrei dois horários disponíveis para amanhã: 10h ou 15h. Qual fica melhor para você?";
+
 function matchesListTab(conversation: Conversation, tab: string): boolean {
     if (tab === "new") return conversation.status === "novo";
     return ["aguardando", "ia-ativa", "humano"].includes(conversation.status);
-}
-
-function getDefaultResponseMode(status: ConversationStatus): ResponseMode {
-    if (status === "resolvido-ia" || status === "resolvido-humano" || status === "abandonado") {
-        return "atendente";
-    }
-    if (status === "humano") return "atendente";
-    return "ia";
 }
 
 function isConversationClosed(status: ConversationStatus): boolean {
@@ -86,7 +74,7 @@ export const ConversationListPanel = ({ conversations, selectedId, onSelect }: C
     }, [conversations, listTab]);
 
     return (
-        <aside className="flex h-full min-h-0 w-[340px] shrink-0 flex-col border-r border-secondary bg-primary">
+        <aside className="flex h-full min-h-0 w-[340px] shrink-0 flex-col border-r border-secondary">
             <div className="shrink-0 border-b border-secondary px-4 py-4">
                 <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -104,13 +92,13 @@ export const ConversationListPanel = ({ conversations, selectedId, onSelect }: C
                 </Tabs>
             </div>
 
-            <ul className="min-h-0 flex-1 overflow-y-auto">
+            <ul className="min-h-0 flex-1 overflow-y-auto bg-primary">
                 {grouped.length === 0 ? (
                     <li className="px-4 py-8 text-center text-sm text-tertiary">Nenhuma conversa nesta visualização.</li>
                 ) : (
                     grouped.map((group) => (
                         <li key={group.label}>
-                            <div className="sticky top-0 z-10 border-b border-secondary bg-secondary_subtle px-4 py-2">
+                            <div className="sticky top-0 z-10 border-b border-secondary bg-primary px-4 py-2">
                                 <p className="text-xs font-semibold text-tertiary">{group.label}</p>
                             </div>
                             <ul>
@@ -120,7 +108,7 @@ export const ConversationListPanel = ({ conversations, selectedId, onSelect }: C
                                             type="button"
                                             onClick={() => onSelect(conversation.id)}
                                             className={cx(
-                                                "flex w-full items-start gap-3 px-4 py-3 text-left transition duration-100 ease-linear hover:bg-primary_hover",
+                                                "flex w-full items-start gap-3 px-4 py-5 text-left transition duration-100 ease-linear hover:bg-primary_hover",
                                                 selectedId === conversation.id && "bg-active",
                                             )}
                                         >
@@ -134,13 +122,7 @@ export const ConversationListPanel = ({ conversations, selectedId, onSelect }: C
                                                     <p className="truncate text-sm font-semibold text-primary">{conversation.contactName}</p>
                                                     <span className="shrink-0 text-xs text-quaternary">{conversation.timestamp}</span>
                                                 </div>
-                                                <p className="mt-0.5 truncate text-sm text-secondary">{conversation.lastMessage}</p>
-                                                <div className="mt-2 flex flex-wrap items-center gap-2">
-                                                    <StatusBadge status={conversation.status} />
-                                                    {conversation.confidence !== undefined && (
-                                                        <ConfidenceBadge value={conversation.confidence} />
-                                                    )}
-                                                </div>
+                                                <p className="mt-1 truncate text-sm text-secondary">{conversation.lastMessage}</p>
                                             </div>
                                         </button>
                                     </li>
@@ -157,222 +139,186 @@ export const ConversationListPanel = ({ conversations, selectedId, onSelect }: C
 interface ConversationChatPanelProps {
     conversation: Conversation;
     messages: Message[];
-    onAssume?: () => void;
 }
 
-export const ConversationChatPanel = ({ conversation, messages, onAssume }: ConversationChatPanelProps) => {
+export const ConversationChatPanel = ({ conversation, messages }: ConversationChatPanelProps) => {
     const closed = isConversationClosed(conversation.status);
-    const defaultMode = getDefaultResponseMode(conversation.status);
-    const [responseMode, setResponseMode] = useState<ResponseMode>(defaultMode);
-    const [draftByMode, setDraftByMode] = useState<Record<ResponseMode, string>>({
-        atendente: "",
-        ia: "",
-        nota: "",
-    });
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-    const [hasAssumed, setHasAssumed] = useState(false);
+    const [takenOver, setTakenOver] = useState(false);
+    const [message, setMessage] = useState("");
+    const [liveMessages, setLiveMessages] = useState<Message[]>([]);
+    const [isAiTyping, setIsAiTyping] = useState(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const message = draftByMode[responseMode];
-    const needsAssume = conversationNeedsAssumeAttendance(conversation) && !hasAssumed;
-    const secondaryModes = (["atendente", "ia", "nota"] as ResponseMode[]).filter((m) => m !== responseMode);
+    const willTakeOver = !closed && !takenOver && conversation.status !== "humano";
+    const displayStatus = takenOver ? "humano" : conversation.status;
 
     useEffect(() => {
-        setResponseMode(getDefaultResponseMode(conversation.status));
-        setHasAssumed(false);
-    }, [conversation.id, conversation.status]);
+        setTakenOver(false);
+        setMessage("");
+        setLiveMessages([]);
+        setIsAiTyping(false);
+    }, [conversation.id]);
 
-    const setMessage = (value: string) => {
-        setDraftByMode((prev) => ({ ...prev, [responseMode]: value }));
-    };
+    useEffect(() => {
+        if (!willTakeOver) return;
+
+        setIsAiTyping(true);
+        timerRef.current = setTimeout(() => {
+            setLiveMessages((prev) => [
+                ...prev,
+                {
+                    id: `live-${conversation.id}`,
+                    type: "ai",
+                    content: simulatedAiReply,
+                    timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+                },
+            ]);
+            setIsAiTyping(false);
+
+            timerRef.current = setTimeout(() => setIsAiTyping(true), 2200);
+        }, 2200);
+
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+        };
+    }, [conversation.id, willTakeOver]);
 
     const handleAssume = () => {
-        setHasAssumed(true);
-        setResponseMode("atendente");
-        onAssume?.();
+        setTakenOver(true);
+    };
+
+    const handleSend = () => {
+        const trimmed = message.trim();
+        if (!trimmed) return;
+
+        setLiveMessages((prev) => [
+            ...prev,
+            {
+                id: `sent-${Date.now()}`,
+                type: "out",
+                content: trimmed,
+                timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+            },
+        ]);
+        setMessage("");
     };
 
     return (
-        <div className="flex h-full min-h-0 min-w-0 flex-1">
-            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-secondary">
-                <div className="flex shrink-0 items-center justify-between border-b border-secondary bg-primary px-4 py-3 md:px-5">
-                    <div className="flex items-center gap-3">
-                        <Avatar initials={conversation.avatarInitials} size="md" />
-                        <div>
-                            <button
-                                type="button"
-                                onClick={() => setIsContactModalOpen(true)}
-                                className="rounded-sm text-left outline-focus-ring transition duration-100 ease-linear hover:text-brand-secondary focus-visible:outline-2 focus-visible:outline-offset-2"
-                            >
-                                <span className="text-sm font-semibold text-primary">{conversation.contactName}</span>
-                            </button>
-                            <p className="text-xs text-tertiary">{conversation.contactPhone}</p>
-                        </div>
+        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-primary">
+            <div className="flex shrink-0 items-center justify-between border-b border-secondary bg-primary px-4 py-3 md:px-5">
+                <div className="flex items-center gap-3">
+                    <Avatar initials={conversation.avatarInitials} size="md" />
+                    <div>
+                        <button
+                            type="button"
+                            onClick={() => setIsContactModalOpen(true)}
+                            className="rounded-sm text-left outline-focus-ring transition duration-100 ease-linear hover:text-brand-secondary focus-visible:outline-2 focus-visible:outline-offset-2"
+                        >
+                            <span className="text-sm font-semibold text-primary">{conversation.contactName}</span>
+                        </button>
+                        <p className="text-xs text-tertiary">{conversation.contactPhone}</p>
                     </div>
-                    <StatusBadge status={hasAssumed ? "humano" : conversation.status} />
                 </div>
-
-                {needsAssume && conversation.escalationReason && (
-                    <AssumeAttendanceBanner
-                        escalationReason={conversation.escalationReason}
-                        onAssume={handleAssume}
-                    />
-                )}
-
-                <ContactDetailsModal
-                    conversation={conversation}
-                    isOpen={isContactModalOpen}
-                    onOpenChange={setIsContactModalOpen}
-                />
-
-                <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 md:p-5">
-                    {messages.map((msg) => (
-                        <MessageBubble key={msg.id} message={msg} />
-                    ))}
-                </div>
-
-                <div className="shrink-0 border-t border-secondary bg-primary p-4 md:p-5">
-                    {closed ? (
-                        <p className="rounded-lg bg-secondary px-4 py-3 text-center text-sm text-tertiary">
-                            Atendimento encerrado
-                        </p>
-                    ) : (
-                        <>
-                            <div className="mb-3 flex items-center gap-2">
-                                <span className="rounded-md bg-secondary px-2.5 py-1 text-xs font-semibold text-primary">
-                                    {responseMode === "atendente"
-                                        ? "Atendente"
-                                        : responseMode === "ia"
-                                          ? "Modo IA"
-                                          : "Nota interna"}
-                                </span>
-                                {secondaryModes.length > 0 && (
-                                    <Dropdown.Root>
-                                        <Dropdown.DotsButton aria-label="Mais opções de resposta" />
-                                        <Dropdown.Popover>
-                                            <Dropdown.Menu
-                                                onAction={(key) => setResponseMode(String(key) as ResponseMode)}
-                                            >
-                                                {secondaryModes.map((mode) => (
-                                                    <Dropdown.Item
-                                                        key={mode}
-                                                        id={mode}
-                                                        label={
-                                                            mode === "atendente"
-                                                                ? "Atendente"
-                                                                : mode === "ia"
-                                                                  ? "Modo IA"
-                                                                  : "Nota interna"
-                                                        }
-                                                    />
-                                                ))}
-                                            </Dropdown.Menu>
-                                        </Dropdown.Popover>
-                                    </Dropdown.Root>
-                                )}
-                                <Tooltip title="Mais opções de resposta" placement="top">
-                                    <span className="sr-only">Mais opções</span>
-                                </Tooltip>
-                            </div>
-                            {responseMode === "nota" || responseMode === "ia" ? (
-                                <TextArea
-                                    placeholder={
-                                        responseMode === "nota"
-                                            ? "Adicionar nota interna (não visível para o cliente)..."
-                                            : "Instruir o agente sobre como responder..."
-                                    }
-                                    rows={3}
-                                    value={message}
-                                    onChange={setMessage}
-                                />
-                            ) : (
-                                <TextArea
-                                    placeholder="Digite sua mensagem..."
-                                    rows={3}
-                                    value={message}
-                                    onChange={setMessage}
-                                />
-                            )}
-                            <div className="mt-3 flex justify-end">
-                                <Button iconLeading={Send01} isDisabled={!message.trim()}>
-                                    {responseMode === "nota"
-                                        ? "Salvar nota"
-                                        : responseMode === "ia"
-                                          ? "Instruir agente"
-                                          : "Enviar"}
-                                </Button>
-                            </div>
-                        </>
-                    )}
-                </div>
+                <StatusBadge status={displayStatus} />
             </div>
 
-            <ConversationContextSidebar conversation={conversation} />
+            <ContactDetailsModal
+                conversation={conversation}
+                isOpen={isContactModalOpen}
+                onOpenChange={setIsContactModalOpen}
+            />
+
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 md:p-5">
+                {[...messages, ...liveMessages].map((msg) => (
+                    <MessageBubble key={msg.id} message={msg} clientName={conversation.contactName} />
+                ))}
+                {willTakeOver && isAiTyping && <TypingIndicator />}
+            </div>
+
+            <div className="relative shrink-0 overflow-hidden border-t border-secondary bg-primary p-4 md:p-5">
+                {willTakeOver && (
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -top-16 -left-16 size-72 rounded-full bg-brand-solid/20 blur-2xl"
+                    />
+                )}
+                {closed ? (
+                    <p className="rounded-lg bg-secondary px-4 py-3 text-center text-sm text-tertiary">
+                        Atendimento encerrado
+                    </p>
+                ) : willTakeOver ? (
+                    <div className="relative flex items-center justify-between gap-16">
+                        <div className="flex min-w-0 items-center gap-4">
+                            <FeaturedIcon icon={MessageChatCircle} color="brand" theme="light" size="md" />
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-primary">A IA está atendendo esta conversa</p>
+                                <p className="text-sm text-tertiary">
+                                    Assuma para responder diretamente. A IA fica indisponível nesta conversa.
+                                </p>
+                            </div>
+                        </div>
+                        <Button onClick={handleAssume}>Assumir conversa</Button>
+                    </div>
+                ) : (
+                    <>
+                        <TextArea
+                            placeholder="Digite sua mensagem..."
+                            rows={3}
+                            value={message}
+                            onChange={setMessage}
+                        />
+                        <div className="mt-3 flex justify-end">
+                            <Button iconLeading={Send01} isDisabled={!message.trim()} onClick={handleSend}>
+                                Enviar
+                            </Button>
+                        </div>
+                    </>
+                )}
+            </div>
         </div>
     );
 };
 
-const MessageBubble = ({ message }: { message: Message }) => {
-    if (message.type === "note") {
-        return (
-            <div className="mx-auto w-full max-w-2xl rounded-lg border border-dashed border-secondary bg-secondary_subtle px-4 py-3">
-                <div className="flex items-start justify-between gap-2">
-                    <p className="text-xs font-medium text-tertiary">
-                        Nota de {message.sender ?? "João"} · {message.timestamp}
-                    </p>
-                    <div className="flex shrink-0 gap-1">
-                        <Button color="tertiary" size="sm" iconLeading={Edit05} aria-label="Editar nota" />
-                        <Button color="tertiary" size="sm" iconLeading={Trash01} aria-label="Excluir nota" />
-                    </div>
+const TypingIndicator = () => (
+    <div className="flex animate-in fade-in justify-end duration-300">
+        <div className="flex max-w-[85%] flex-col gap-1 md:max-w-[70%] items-end">
+            <div className="rounded-xl rounded-br-none bg-gradient-to-br from-utility-purple-50 to-utility-purple-200 px-4 py-3 ring-1 ring-utility-purple-200 ring-inset">
+                <div className="flex items-center gap-1">
+                    <span className="size-1.5 animate-bounce rounded-full bg-utility-purple-500 [animation-delay:-0.3s]" />
+                    <span className="size-1.5 animate-bounce rounded-full bg-utility-purple-500 [animation-delay:-0.15s]" />
+                    <span className="size-1.5 animate-bounce rounded-full bg-utility-purple-500" />
                 </div>
-                <p className="mt-2 text-sm text-primary">{message.content}</p>
             </div>
-        );
-    }
+        </div>
+    </div>
+);
 
+const MessageBubble = ({ message, clientName }: { message: Message; clientName: string }) => {
     const isOutgoing = message.type === "out" || message.type === "ai";
+    const senderName = message.type === "out" ? "Você" : message.type === "ai" ? "Atendente Tessen" : clientName;
+    const textColor =
+        message.type === "out" ? "text-utility-brand-700" : message.type === "ai" ? "text-utility-purple-700" : "text-primary";
+    const metaColor =
+        message.type === "out" ? "text-utility-brand-500" : message.type === "ai" ? "text-utility-purple-500" : "text-quaternary";
 
     return (
-        <div className={cx("flex", isOutgoing ? "justify-end" : "justify-start")}>
+        <div className={cx("flex animate-in fade-in duration-300", isOutgoing ? "justify-end" : "justify-start")}>
             <div className={cx("flex max-w-[85%] flex-col gap-1 md:max-w-[70%]", isOutgoing && "items-end")}>
-                {message.type === "out" && <span className="text-xs font-medium text-tertiary">Você</span>}
-                {message.type === "ai" && (
-                    <div className="flex items-center gap-1.5">
-                        <Stars02 className="size-3.5 text-utility-brand-500" />
-                        <span className="text-xs font-medium text-utility-brand-700">{message.sender}</span>
-                    </div>
-                )}
                 <div
                     className={cx(
                         "rounded-xl px-4 py-3",
-                        message.type === "in" && "bg-primary ring-1 ring-secondary ring-inset",
+                        message.type === "out" && "rounded-br-none bg-utility-brand-50 ring-1 ring-utility-brand-200 ring-inset",
                         message.type === "ai" &&
-                            "bg-utility-brand-50 text-utility-brand-700 ring-1 ring-utility-brand-200 ring-inset",
-                        message.type === "out" && "bg-brand-solid",
+                            "rounded-br-none bg-gradient-to-br from-utility-purple-50 to-utility-purple-200 ring-1 ring-utility-purple-200 ring-inset",
+                        message.type === "in" && "rounded-bl-none bg-primary ring-1 ring-secondary ring-inset",
                     )}
                 >
-                    <p
-                        className={cx(
-                            "text-sm",
-                            message.type === "out" && "text-primary_on-brand",
-                            message.type === "ai" && "text-utility-brand-700",
-                            message.type === "in" && "text-primary",
-                        )}
-                    >
-                        {message.content}
-                    </p>
-                    <div
-                        className={cx(
-                            "mt-1 flex items-center gap-1.5",
-                            message.type === "out" && "text-tertiary_on-brand",
-                            message.type === "ai" && "text-utility-brand-500",
-                            message.type === "in" && "text-quaternary",
-                        )}
-                    >
-                        <span className="text-xs">{message.timestamp}</span>
-                        {isOutgoing && (
-                            <MessageDeliveryIndicator status={message.deliveryStatus} />
-                        )}
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                        <span className={cx("text-xs font-semibold", metaColor)}>{senderName}</span>
+                        <span className={cx("text-xs", metaColor)}>{message.timestamp}</span>
                     </div>
+                    <p className={cx("text-sm", textColor)}>{message.content}</p>
                 </div>
             </div>
         </div>

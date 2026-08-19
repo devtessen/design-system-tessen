@@ -3,8 +3,16 @@
 import type { ReactNode } from "react";
 import { Badge, BadgeWithDot } from "@/components/base/badges/badges";
 import { BadgeGroup } from "@/components/base/badges/badge-groups";
-import type { ConversationStatus } from "@/components/application/tessen/tessen-data";
-import { formatWaitingDuration, statusColors, statusLabels } from "@/components/application/tessen/tessen-data";
+import type { ContactStage, ConversationStatus, TessenLeadStage } from "@/components/application/tessen/tessen-data";
+import { contactStageColors, contactStageLabels, tessenLeadStageColors, tessenLeadStageLabels } from "@/components/application/tessen/tessen-data";
+import {
+    clienteConversationDisplayColors,
+    clienteConversationDisplayLabels,
+    formatWaitingDuration,
+    getClienteConversationDisplayStatus,
+    statusColors,
+    statusLabels,
+} from "@/components/application/tessen/tessen-data";
 import { formatConfidenceTooltip, getConfidenceSemantics } from "@/components/application/tessen/tessen-confidence";
 import { ProgressBarBase } from "@/components/base/progress-indicators/progress-indicators";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
@@ -122,6 +130,31 @@ export const StatusBadge = ({ status }: { status: ConversationStatus }) => {
     return (
         <BadgeWithDot size="sm" color={statusColors[status]} type="modern">
             {statusLabels[status]}
+        </BadgeWithDot>
+    );
+};
+
+/** Estágio comercial do lead (visão admin — Contatos). */
+export const LeadStageBadge = ({ stage }: { stage: TessenLeadStage }) => (
+    <Badge type="pill-color" color={tessenLeadStageColors[stage]} size="sm">
+        {tessenLeadStageLabels[stage]}
+    </Badge>
+);
+
+/** Estágio do paciente na lista de contatos (primeiro contato = Interessado). */
+export const ContactStageBadge = ({ stage }: { stage: ContactStage }) => (
+    <Badge type="pill-color" color={contactStageColors[stage]} size="sm">
+        {contactStageLabels[stage]}
+    </Badge>
+);
+
+/** Status operacional para a Visão Geral do cliente (PRD v2). */
+export const ClienteConversationStatusBadge = ({ status }: { status: ConversationStatus }) => {
+    const display = getClienteConversationDisplayStatus(status);
+
+    return (
+        <BadgeWithDot size="sm" color={clienteConversationDisplayColors[display]} type="modern">
+            {clienteConversationDisplayLabels[display]}
         </BadgeWithDot>
     );
 };

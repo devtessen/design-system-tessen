@@ -1,9 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Play, Save01 } from "@untitledui/icons";
+import { ArrowLeft, Play, Save01 } from "@untitledui/icons";
 import { AgentSandboxPanel } from "@/components/application/tessen/agent-sandbox-panel";
-import { nichePresets, thresholdImpactByValue } from "@/components/application/tessen/tessen-data";
+import {
+    nichePresets,
+    tessenNicheLabels,
+    thresholdImpactByValue,
+    type TessenNicheId,
+} from "@/components/application/tessen/tessen-data";
+import type { TessenUserType } from "@/components/application/tessen/tessen-nav";
 import { TessenPageHeader, TessenShell } from "@/components/application/tessen/tessen-shell";
 import { tessenTypography } from "@/components/application/tessen/tessen-typography";
 import { Badge } from "@/components/base/badges/badges";
@@ -15,12 +21,10 @@ import { Slider } from "@/components/base/slider/slider";
 import { TextArea } from "@/components/base/textarea/textarea";
 import { Toggle } from "@/components/base/toggle/toggle";
 
-const nicheItems = [
-    { id: "clinica", label: "Clínica médica" },
-    { id: "salao", label: "Salão e estética" },
-    { id: "autonomo", label: "Autônomo" },
-    { id: "startup", label: "Startup B2C" },
-];
+const nicheItems = (Object.keys(tessenNicheLabels) as TessenNicheId[]).map((id) => ({
+    id,
+    label: tessenNicheLabels[id],
+}));
 
 const toneItems = [
     { id: "profissional", label: "Profissional e cordial" },
@@ -62,48 +66,60 @@ function buildPromptFromSelections(does: Set<string>, doesNot: Set<string>, tone
     ].join("\n");
 }
 
-export const TessenAgentConfigScreen = () => {
+function createStateFromPreset(nicheId: TessenNicheId) {
+    const preset = nichePresets[nicheId];
+    const doesSet = new Set(preset.does);
+    const doesNotSet = new Set(preset.doesNot);
+
+    return {
+        agentName: preset.agentName,
+        tone: preset.tone,
+        does: doesSet,
+        doesNot: doesNotSet,
+        minConfidence: preset.minConfidence,
+        timeoutMinutes: preset.timeoutMinutes,
+        urgencyKeywords: preset.urgencyKeywords,
+        generatedPrompt: buildPromptFromSelections(doesSet, doesNotSet, preset.tone),
+    };
+}
+
+interface TessenAgentConfigScreenProps {
+    userType?: TessenUserType;
+    nicheId?: TessenNicheId;
+    onBack?: () => void;
+}
+
+export const TessenAgentConfigScreen = ({
+    userType = "admin",
+    nicheId = "clinica",
+    onBack,
+}: TessenAgentConfigScreenProps) => {
+    const initial = createStateFromPreset(nicheId);
+
+    const [selectedNiche, setSelectedNiche] = useState<TessenNicheId>(nicheId);
+    const [nicheBanner, setNicheBanner] = useState<string | null>(null);
+    const nicheLabel = tessenNicheLabels[selectedNiche];
+
     const [autoConfirm, setAutoConfirm] = useState(true);
     const [collectData, setCollectData] = useState(true);
     const [silentMode, setSilentMode] = useState(false);
-    const [selectedNiche, setSelectedNiche] = useState<string | null>(null);
-    const [nicheBanner, setNicheBanner] = useState<string | null>(null);
-    const [agentName, setAgentName] = useState("Assistente Saúde");
-    const [tone, setTone] = useState("profissional");
-    const [does, setDoes] = useState<Set<string>>(new Set(["agendar", "convenios"]));
-    const [doesNot, setDoesNot] = useState<Set<string>>(new Set(["diagnosticos", "exames"]));
-    const [minConfidence, setMinConfidence] = useState(65);
-    const [timeoutMinutes, setTimeoutMinutes] = useState(10);
-    const [urgencyKeywords, setUrgencyKeywords] = useState("urgente, emergência");
+    const [agentName, setAgentName] = useState(initial.agentName);
+    const [tone, setTone] = useState(initial.tone);
+    const [does, setDoes] = useState(initial.does);
+    const [doesNot, setDoesNot] = useState(initial.doesNot);
+    const [minConfidence, setMinConfidence] = useState(initial.minConfidence);
+    const [timeoutMinutes, setTimeoutMinutes] = useState(initial.timeoutMinutes);
+    const [urgencyKeywords, setUrgencyKeywords] = useState(initial.urgencyKeywords);
     const [showPrompt, setShowPrompt] = useState(false);
     const [promptEdited, setPromptEdited] = useState(false);
-    const [generatedPrompt, setGeneratedPrompt] = useState(() =>
-        buildPromptFromSelections(new Set(["agendar", "convenios"]), new Set(["diagnosticos", "exames"]), "profissional"),
-    );
+    const [generatedPrompt, setGeneratedPrompt] = useState(initial.generatedPrompt);
     const [sandboxOpen, setSandboxOpen] = useState(false);
-    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(true);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     const escalationEstimate =
         thresholdImpactByValue[minConfidence] ??
         thresholdImpactByValue[70] ??
         28;
-
-    const applyNichePreset = (nicheId: string) => {
-        if (nicheId !== "clinica") return;
-        const preset = nichePresets.clinica;
-        setAgentName(preset.agentName);
-        setTone(preset.tone);
-        setDoes(new Set(preset.does));
-        setDoesNot(new Set(preset.doesNot));
-        setMinConfidence(preset.minConfidence);
-        setTimeoutMinutes(preset.timeoutMinutes);
-        setUrgencyKeywords(preset.urgencyKeywords);
-        const prompt = buildPromptFromSelections(new Set(preset.does), new Set(preset.doesNot), preset.tone);
-        setGeneratedPrompt(prompt);
-        setPromptEdited(false);
-        setNicheBanner("Configurações pré-definidas para Clínica médica aplicadas — ajuste o que precisar");
-        setHasUnsavedChanges(true);
-    };
 
     const toggleSet = (set: Set<string>, id: string, checked: boolean) => {
         const next = new Set(set);
@@ -119,13 +135,39 @@ export const TessenAgentConfigScreen = () => {
         setHasUnsavedChanges(true);
     };
 
+    const applyNichePreset = (id: TessenNicheId) => {
+        const preset = nichePresets[id];
+        const doesSet = new Set(preset.does);
+        const doesNotSet = new Set(preset.doesNot);
+
+        setSelectedNiche(id);
+        setAgentName(preset.agentName);
+        setTone(preset.tone);
+        setDoes(doesSet);
+        setDoesNot(doesNotSet);
+        setMinConfidence(preset.minConfidence);
+        setTimeoutMinutes(preset.timeoutMinutes);
+        setUrgencyKeywords(preset.urgencyKeywords);
+        setGeneratedPrompt(buildPromptFromSelections(doesSet, doesNotSet, preset.tone));
+        setPromptEdited(false);
+        setNicheBanner(`Configurações pré-definidas para ${tessenNicheLabels[id]} aplicadas — ajuste o que precisar`);
+        setHasUnsavedChanges(true);
+    };
+
     return (
-        <TessenShell activeUrl="/agente" className={sandboxOpen ? "overflow-hidden" : undefined}>
+        <TessenShell activeUrl={`/agentes/${selectedNiche}`} userType={userType} className={sandboxOpen ? "overflow-hidden" : undefined}>
             <div className="flex min-h-0 flex-1">
                 <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+                    {onBack && (
+                        <div className="border-b border-secondary bg-primary px-4 py-3 md:px-6">
+                            <Button color="link-gray" size="sm" iconLeading={ArrowLeft} onClick={onBack}>
+                                Voltar para Agentes
+                            </Button>
+                        </div>
+                    )}
                     <TessenPageHeader
                         title="Configuração do agente"
-                        description="Personalize persona, tom de voz e regras de escalação do agente de IA"
+                        description={`${nicheLabel} — persona, tom de voz e regras de escalação`}
                         actions={
                             <>
                                 <Button color="secondary" iconLeading={Play} onClick={() => setSandboxOpen(true)}>
@@ -160,12 +202,8 @@ export const TessenAgentConfigScreen = () => {
                                     label="Nicho"
                                     placeholder="Selecione o nicho"
                                     items={nicheItems}
-                                    selectedKey={selectedNiche ?? undefined}
-                                    onSelectionChange={(key) => {
-                                        const id = String(key);
-                                        setSelectedNiche(id);
-                                        applyNichePreset(id);
-                                    }}
+                                    selectedKey={selectedNiche}
+                                    onSelectionChange={(key) => applyNichePreset(String(key) as TessenNicheId)}
                                 >
                                     {(item) => <Select.Item id={item.id}>{item.label}</Select.Item>}
                                 </Select>

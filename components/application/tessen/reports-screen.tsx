@@ -1,17 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartTooltipContent } from "@/components/application/charts/charts-base";
-import {
-    accountSettings,
-    confidenceTrendData,
-    csatMetrics,
-    dailyVolumeData,
-    escalationBreakdown,
-    reportKpis,
-    topIntents,
-} from "@/components/application/tessen/tessen-data";
+import { TessenAttendanceVolumeChart } from "@/components/application/tessen/tessen-attendance-volume-chart";
+import { confidenceTrendData, csatMetrics, escalationBreakdown, reportKpis, topIntents } from "@/components/application/tessen/tessen-data";
+import type { TessenUserType } from "@/components/application/tessen/tessen-nav";
 import { MetricCard, TessenPageHeader, TessenShell } from "@/components/application/tessen/tessen-shell";
 import { tessenTypography } from "@/components/application/tessen/tessen-typography";
 import { Button } from "@/components/base/buttons/button";
@@ -19,36 +13,21 @@ import { TabList, Tabs } from "@/components/application/tabs/tabs";
 import { DownloadCloud02 } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
 
-const VolumeTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ payload: Record<string, number | string> }>; label?: string }) => {
-    if (!active || !payload?.[0]) return null;
-    const data = payload[0].payload;
-    const ia = Number(data.ia);
-    const humano = Number(data.humano);
-    const abandonado = Number(data.abandonado);
-    const total = ia + humano + abandonado;
+interface TessenReportsScreenProps {
+    userType?: TessenUserType;
+}
 
-    return (
-        <div className="rounded-lg bg-primary-solid px-3 py-2 text-xs text-white shadow-lg">
-            <p className="font-semibold">{label}</p>
-            <p className="mt-1">Total: {total} atendimentos</p>
-            <p>IA resolveu: {ia} ({total ? Math.round((ia / total) * 100) : 0}%)</p>
-            <p>Humano assumiu: {humano} ({total ? Math.round((humano / total) * 100) : 0}%)</p>
-            <p>Abandonados: {abandonado} ({total ? Math.round((abandonado / total) * 100) : 0}%)</p>
-        </div>
-    );
-};
-
-export const TessenReportsScreen = () => {
+export const TessenReportsScreen = ({ userType = "admin" }: TessenReportsScreenProps) => {
     const [period, setPeriod] = useState("week");
     const [selectedReason, setSelectedReason] = useState<string | null>(null);
 
     const csatSmallSample = csatMetrics.sampleSize < 10;
 
     return (
-        <TessenShell activeUrl="/relatorios">
+        <TessenShell activeUrl="/relatorios" userType={userType}>
             <TessenPageHeader
                 title="Relatórios"
-                description="Métricas de desempenho do agente e qualidade de atendimento"
+                description="Métricas de desempenho do agente e qualidade de atendimento — visão interna Tessen"
                 actions={
                     <Button color="secondary" size="sm" iconLeading={DownloadCloud02}>
                         Exportar
@@ -108,39 +87,7 @@ export const TessenReportsScreen = () => {
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                    <div className="rounded-xl bg-primary p-5 shadow-xs ring-1 ring-secondary ring-inset">
-                        <h2 className={tessenTypography.sectionTitle}>Volume de atendimentos</h2>
-                        <ul className="mt-2 flex flex-wrap gap-4 text-sm text-tertiary">
-                            <li className="flex items-center gap-2">
-                                <span className="size-2 rounded-full bg-utility-brand-600" /> IA resolveu
-                            </li>
-                            <li className="flex items-center gap-2">
-                                <span className="size-2 rounded-full bg-utility-brand-300" /> Humano assumiu
-                            </li>
-                            <li className="flex items-center gap-2">
-                                <span className="size-2 rounded-full bg-utility-neutral-400" /> Abandonado
-                            </li>
-                        </ul>
-                        <ResponsiveContainer initialDimension={{ width: 1, height: 1 }} className="mt-4 h-64!">
-                            <BarChart data={dailyVolumeData} className="text-tertiary [&_.recharts-text]:text-xs">
-                                <CartesianGrid vertical={false} stroke="currentColor" className="text-border-secondary" />
-                                <XAxis dataKey="day" axisLine={false} tickLine={false} />
-                                <YAxis axisLine={false} tickLine={false} width={32} />
-                                <Tooltip content={<VolumeTooltip />} cursor={{ fill: "transparent" }} />
-                                <Legend content={() => null} />
-                                <ReferenceLine
-                                    y={50}
-                                    stroke="currentColor"
-                                    strokeDasharray="4 4"
-                                    className="text-tertiary"
-                                    label={{ value: `Meta: ${accountSettings.aiResolutionGoalPercent}%`, position: "insideTopRight", fill: "currentColor", fontSize: 11 }}
-                                />
-                                <Bar dataKey="ia" name="IA resolveu" fill="currentColor" className="text-utility-brand-600" radius={[4, 4, 0, 0]} stackId="a" />
-                                <Bar dataKey="humano" name="Humano assumiu" fill="currentColor" className="text-utility-brand-300" radius={[4, 4, 0, 0]} stackId="a" />
-                                <Bar dataKey="abandonado" name="Abandonado" fill="currentColor" className="text-utility-neutral-400" radius={[4, 4, 0, 0]} stackId="a" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                    <TessenAttendanceVolumeChart period={period as "day" | "week" | "month"} />
 
                     <div className="rounded-xl bg-primary p-5 shadow-xs ring-1 ring-secondary ring-inset">
                         <h2 className={tessenTypography.sectionTitle}>Evolução da confiança média</h2>

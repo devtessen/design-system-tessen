@@ -11,5 +11,5 @@ export const tessenTypography = sortCx({
     statValueBrand: "font-display text-display-xs font-semibold text-brand-secondary",
     brandName: "font-display text-lg font-semibold tracking-tight text-primary",
     bannerTitle: "font-display text-sm font-semibold text-primary",
-    overline: "font-display text-xs font-semibold tracking-wide text-quaternary uppercase",
+    overline: "font-body text-xs font-semibold tracking-wide text-quaternary uppercase",
 });

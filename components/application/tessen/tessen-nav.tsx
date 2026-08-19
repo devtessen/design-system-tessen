@@ -2,6 +2,7 @@
 
 import {
     BarChartSquare02,
+    Calendar,
     LifeBuoy01,
     MessageChatCircle,
     PieChart03,
@@ -12,9 +13,51 @@ import {
 import type { NavItemDividerType, NavItemType } from "@/components/application/app-navigation/config";
 import { CountBadge } from "@/components/application/tessen/tessen-badges";
 
-export const tessenNavItems: (NavItemType | NavItemDividerType)[] = [
+export type TessenUserType = "cliente" | "admin";
+
+const tessenFooterItems: NavItemType[] = [
     {
-        label: "Painel",
+        label: "Configurações",
+        href: "/configuracoes",
+        icon: Settings01,
+    },
+    {
+        label: "Suporte",
+        href: "/suporte",
+        icon: LifeBuoy01,
+    },
+];
+
+/** Navegação do usuário cliente (clínica / negócio atendido). */
+export const tessenClienteNavItems: (NavItemType | NavItemDividerType)[] = [
+    {
+        label: "Visão Geral",
+        href: "/painel",
+        icon: BarChartSquare02,
+    },
+    {
+        label: "Agendamentos",
+        href: "/agendamentos",
+        icon: Calendar,
+    },
+    { divider: true },
+    {
+        label: "Conversas",
+        href: "/conversas",
+        icon: MessageChatCircle,
+        badge: <CountBadge color="brand" className="ml-3">3</CountBadge>,
+    },
+    {
+        label: "Contatos",
+        href: "/contatos",
+        icon: Users01,
+    },
+];
+
+/** Navegação do usuário admin (interno Tessen). */
+export const tessenAdminNavItems: (NavItemType | NavItemDividerType)[] = [
+    {
+        label: "Visão Geral",
         href: "/painel",
         icon: BarChartSquare02,
     },
@@ -37,21 +80,17 @@ export const tessenNavItems: (NavItemType | NavItemDividerType)[] = [
     },
     { divider: true },
     {
-        label: "Agente",
-        href: "/agente",
+        label: "Agentes",
+        href: "/agentes",
         icon: Stars01,
     },
 ];
 
-export const tessenFooterItems: NavItemType[] = [
-    {
-        label: "Configurações",
-        href: "/configuracoes",
-        icon: Settings01,
-    },
-    {
-        label: "Suporte",
-        href: "/suporte",
-        icon: LifeBuoy01,
-    },
-];
+export function getTessenNavItems(userType: TessenUserType) {
+    return userType === "admin" ? tessenAdminNavItems : tessenClienteNavItems;
+}
+
+/** @deprecated Use getTessenNavItems("cliente") */
+export const tessenNavItems = tessenClienteNavItems;
+
+export { tessenFooterItems };

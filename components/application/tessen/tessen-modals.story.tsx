@@ -1,21 +1,15 @@
 import { useState } from "react";
-import { withOverlayAware } from "@/components/internal/decorators";
 import { ContactDetailsModal } from "@/components/application/tessen/contact-details-modal";
 import { conversations } from "@/components/application/tessen/tessen-data";
+import { tessenModalDecorator } from "@/components/application/tessen/tessen-story-shared";
 import { Button } from "@/components/base/buttons/button";
 import { Avatar } from "@/components/base/avatar/avatar";
 
 const sampleConversation = conversations[0];
 
 export default {
-    title: "Application/Tessen/Modals",
-    decorators: [
-        withOverlayAware((Story) => (
-            <div className="flex min-h-[480px] w-full items-center justify-center bg-secondary p-8">
-                <Story />
-            </div>
-        )),
-    ],
+    title: "Tessen/Admin/Modals",
+    decorators: [tessenModalDecorator],
     parameters: {
         docs: {
             description: {
