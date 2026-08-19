@@ -3,6 +3,74 @@ import type { EngagementLabel } from "@/components/application/tessen/tessen-bad
 
 export type ConversationStatus = "novo" | "ia-ativa" | "aguardando" | "humano" | "resolvido-ia" | "resolvido-humano" | "abandonado";
 
+export type ConversationChannel = "whatsapp" | "telegram" | "webchat";
+
+export type ClienteConversationDisplayStatus = "novo" | "em-atendimento" | "aguardando" | "resolvido-ia" | "escalado";
+
+export const clienteConversationDisplayLabels: Record<ClienteConversationDisplayStatus, string> = {
+    novo: "Novo",
+    "em-atendimento": "Em atendimento",
+    aguardando: "Aguardando",
+    "resolvido-ia": "Resolvido IA",
+    escalado: "Escalado",
+};
+
+export const clienteConversationDisplayColors: Record<ClienteConversationDisplayStatus, "brand" | "success" | "warning" | "error" | "gray" | "blue"> = {
+    novo: "blue",
+    "em-atendimento": "brand",
+    aguardando: "warning",
+    "resolvido-ia": "success",
+    escalado: "error",
+};
+
+export function getClienteConversationDisplayStatus(status: ConversationStatus): ClienteConversationDisplayStatus {
+    switch (status) {
+        case "novo":
+            return "novo";
+        case "ia-ativa":
+            return "em-atendimento";
+        case "aguardando":
+        case "abandonado":
+            return "aguardando";
+        case "humano":
+            return "escalado";
+        case "resolvido-ia":
+        case "resolvido-humano":
+            return "resolvido-ia";
+    }
+}
+
+export function conversationNeedsClienteHighlight(conversation: Conversation): boolean {
+    const display = getClienteConversationDisplayStatus(conversation.status);
+    return display === "aguardando" || display === "escalado";
+}
+
+export type AgentWorkspaceStatus = "ativo" | "pausado" | "erro";
+
+export const agentWorkspaceStatus = {
+    status: "ativo" as AgentWorkspaceStatus,
+    label: "Agente ativo",
+    errorChannel: undefined as string | undefined,
+};
+
+export type ClienteOverviewPeriod = "today" | "week" | "month";
+
+export const clienteOverviewMetricsByPeriod: Record<
+    ClienteOverviewPeriod,
+    { pendentes: number; agendamentos: number; confirmados: number; noShows: number }
+> = {
+    today: { pendentes: 3, agendamentos: 8, confirmados: 5, noShows: 1 },
+    week: { pendentes: 7, agendamentos: 34, confirmados: 28, noShows: 4 },
+    month: { pendentes: 12, agendamentos: 142, confirmados: 118, noShows: 11 },
+};
+
+export const clienteOverviewMetricLabels = [
+    { key: "pendentes" as const, label: "Pendentes" },
+    { key: "agendamentos" as const, label: "Agendamentos" },
+    { key: "confirmados" as const, label: "Confirmados" },
+    { key: "noShows" as const, label: "No-shows" },
+];
+
 export type EscalationReason = "unknown_subject" | "low_confidence" | "urgency_keyword" | "timeout" | "repeated_question";
 
 export type MessageDeliveryStatus = "sending" | "sent" | "delivered" | "read" | "failed";
@@ -18,6 +86,7 @@ export interface Conversation {
     lastMessage: string;
     timestamp: string;
     status: ConversationStatus;
+    channel?: ConversationChannel;
     confidence?: number;
     niche?: string;
     engagementLabel?: EngagementLabel;
@@ -69,7 +138,7 @@ export const contactAttributeFields = [
 
 export interface Message {
     id: string;
-    type: "in" | "out" | "ai" | "note";
+    type: "in" | "out" | "ai";
     content: string;
     timestamp: string;
     sender?: string;
@@ -211,6 +280,7 @@ export const conversations: Conversation[] = [
         lastMessage: "Preciso remarcar minha consulta de amanhã",
         timestamp: "14:32",
         status: "aguardando",
+        channel: "whatsapp",
         confidence: 42,
         niche: "Clínica",
         engagementLabel: "frequente",
@@ -235,6 +305,7 @@ export const conversations: Conversation[] = [
         lastMessage: "Qual o horário de funcionamento?",
         timestamp: "14:28",
         status: "resolvido-ia",
+        channel: "whatsapp",
         confidence: 91,
         niche: "Clínica",
         engagementLabel: "esporadico",
@@ -251,6 +322,7 @@ export const conversations: Conversation[] = [
         lastMessage: "Vocês aceitam plano Unimed?",
         timestamp: "14:25",
         status: "novo",
+        channel: "telegram",
         confidence: 78,
         niche: "Clínica",
         engagementLabel: "frequente",
@@ -267,6 +339,7 @@ export const conversations: Conversation[] = [
         lastMessage: "Obrigado, já resolvi!",
         timestamp: "14:10",
         status: "humano",
+        channel: "whatsapp",
         confidence: 55,
         niche: "Clínica",
         engagementLabel: "frequente",
@@ -282,6 +355,7 @@ export const conversations: Conversation[] = [
         lastMessage: "Quero agendar uma consulta para sexta",
         timestamp: "13:55",
         status: "resolvido-ia",
+        channel: "webchat",
         confidence: 88,
         niche: "Clínica",
         engagementLabel: "esporadico",
@@ -296,6 +370,7 @@ export const conversations: Conversation[] = [
         lastMessage: "Ainda estou aguardando retorno",
         timestamp: "13:40",
         status: "abandonado",
+        channel: "whatsapp",
         confidence: 35,
         niche: "Clínica",
         engagementLabel: "em-risco",
@@ -337,17 +412,9 @@ export const conversationMessages: Record<string, Message[]> = {
         },
         {
             id: "m5",
-            type: "note",
-            content: "Cliente frequente — priorizar remarcação.",
+            type: "in",
+            content: "Maria Silva, minha consulta original é amanhã às 14h.",
             timestamp: "14:33",
-            sender: "João",
-        },
-        {
-            id: "m6",
-            type: "out",
-            content: "Claro! Vou verificar os horários disponíveis para você.",
-            timestamp: "14:35",
-            deliveryStatus: "read",
         },
     ],
 };
@@ -382,7 +449,26 @@ export const thresholdImpactByValue: Record<number, number> = {
     95: 72,
 };
 
-export const nichePresets = {
+export type TessenNicheId = "clinica" | "salao" | "autonomo" | "startup";
+
+export const tessenNicheLabels: Record<TessenNicheId, string> = {
+    clinica: "Clínica médica",
+    salao: "Salão e estética",
+    autonomo: "Autônomo",
+    startup: "Startup B2C",
+};
+
+export interface TessenNicheAgentPreset {
+    agentName: string;
+    tone: string;
+    does: string[];
+    doesNot: string[];
+    minConfidence: number;
+    timeoutMinutes: number;
+    urgencyKeywords: string;
+}
+
+export const nichePresets: Record<TessenNicheId, TessenNicheAgentPreset> = {
     clinica: {
         agentName: "Sofia",
         tone: "profissional",
@@ -392,7 +478,95 @@ export const nichePresets = {
         timeoutMinutes: 10,
         urgencyKeywords: "dor, emergência, urgente, febre alta",
     },
-} as const;
+    salao: {
+        agentName: "Lia",
+        tone: "informal",
+        does: ["agendar", "confirmacoes", "horarios"],
+        doesNot: ["descontos"],
+        minConfidence: 60,
+        timeoutMinutes: 15,
+        urgencyKeywords: "urgente, reclamação",
+    },
+    autonomo: {
+        agentName: "Assistente",
+        tone: "profissional",
+        does: ["agendar", "coletar-dados", "horarios"],
+        doesNot: ["diagnosticos", "descontos"],
+        minConfidence: 70,
+        timeoutMinutes: 10,
+        urgencyKeywords: "urgente, emergência",
+    },
+    startup: {
+        agentName: "Max",
+        tone: "informal",
+        does: ["horarios", "confirmacoes", "coletar-dados"],
+        doesNot: ["descontos", "exames"],
+        minConfidence: 55,
+        timeoutMinutes: 20,
+        urgencyKeywords: "bug, não funciona, urgente",
+    },
+};
+
+export type TessenNicheAgentStatus = "ativo" | "rascunho";
+
+export interface TessenNicheAgent {
+    id: TessenNicheId;
+    nicheLabel: string;
+    agentName: string;
+    description: string;
+    clientsCount: number;
+    minConfidence: number;
+    status: TessenNicheAgentStatus;
+    updatedAt: string;
+}
+
+export const tessenNicheAgents: TessenNicheAgent[] = [
+    {
+        id: "clinica",
+        nicheLabel: tessenNicheLabels.clinica,
+        agentName: nichePresets.clinica.agentName,
+        description: "Agendamentos, convênios e triagem inicial para clínicas e consultórios médicos.",
+        clientsCount: 2,
+        minConfidence: nichePresets.clinica.minConfidence,
+        status: "ativo",
+        updatedAt: "Hoje, 09:42",
+    },
+    {
+        id: "salao",
+        nicheLabel: tessenNicheLabels.salao,
+        agentName: nichePresets.salao.agentName,
+        description: "Reservas, confirmações e informações de serviços para salões e estética.",
+        clientsCount: 1,
+        minConfidence: nichePresets.salao.minConfidence,
+        status: "ativo",
+        updatedAt: "Ontem, 16:20",
+    },
+    {
+        id: "autonomo",
+        nicheLabel: tessenNicheLabels.autonomo,
+        agentName: nichePresets.autonomo.agentName,
+        description: "Agenda simplificada e coleta de dados para profissionais autônomos.",
+        clientsCount: 1,
+        minConfidence: nichePresets.autonomo.minConfidence,
+        status: "ativo",
+        updatedAt: "22/05/2025",
+    },
+    {
+        id: "startup",
+        nicheLabel: tessenNicheLabels.startup,
+        agentName: nichePresets.startup.agentName,
+        description: "Suporte B2C com tom descontraído, horários e confirmações em escala.",
+        clientsCount: 1,
+        minConfidence: nichePresets.startup.minConfidence,
+        status: "rascunho",
+        updatedAt: "18/05/2025",
+    },
+];
+
+export const tessenNicheAgentStatusLabels: Record<TessenNicheAgentStatus, string> = {
+    ativo: "Ativo",
+    rascunho: "Rascunho",
+};
 
 export const csatMetrics = {
     overall: 4.6,
@@ -424,14 +598,58 @@ export const reportKpis = [
     { label: "Fora do horário", value: "23", change: "31% do total", trend: "up" as const, sublabel: "91% resolvidos pela IA" },
 ];
 
-export const dailyVolumeData = [
-    { day: "Seg", ia: 45, humano: 12, abandonado: 3 },
-    { day: "Ter", ia: 52, humano: 15, abandonado: 2 },
-    { day: "Qua", ia: 48, humano: 11, abandonado: 4 },
-    { day: "Qui", ia: 58, humano: 14, abandonado: 2 },
-    { day: "Sáb", ia: 22, humano: 4, abandonado: 1 },
-    { day: "Dom", ia: 18, humano: 3, abandonado: 1 },
-];
+export interface AttendanceVolumeDatum {
+    label: string;
+    ia: number;
+    humano: number;
+    abandonado: number;
+}
+
+export const attendanceVolumeByPeriod: Record<ClienteOverviewPeriod, AttendanceVolumeDatum[]> = {
+    today: [
+        { label: "8h", ia: 4, humano: 1, abandonado: 0 },
+        { label: "10h", ia: 7, humano: 2, abandonado: 0 },
+        { label: "12h", ia: 11, humano: 3, abandonado: 1 },
+        { label: "14h", ia: 9, humano: 4, abandonado: 0 },
+        { label: "16h", ia: 8, humano: 2, abandonado: 1 },
+        { label: "18h", ia: 6, humano: 1, abandonado: 0 },
+    ],
+    week: [
+        { label: "Seg", ia: 45, humano: 12, abandonado: 3 },
+        { label: "Ter", ia: 52, humano: 15, abandonado: 2 },
+        { label: "Qua", ia: 48, humano: 11, abandonado: 4 },
+        { label: "Qui", ia: 58, humano: 14, abandonado: 2 },
+        { label: "Sex", ia: 41, humano: 10, abandonado: 3 },
+        { label: "Sáb", ia: 22, humano: 4, abandonado: 1 },
+        { label: "Dom", ia: 18, humano: 3, abandonado: 1 },
+    ],
+    month: [
+        { label: "Sem 1", ia: 198, humano: 52, abandonado: 14 },
+        { label: "Sem 2", ia: 212, humano: 48, abandonado: 11 },
+        { label: "Sem 3", ia: 225, humano: 55, abandonado: 9 },
+        { label: "Sem 4", ia: 231, humano: 49, abandonado: 12 },
+    ],
+};
+
+export type ReportVolumePeriod = "day" | "week" | "month";
+
+const reportToOverviewPeriod: Record<ReportVolumePeriod, ClienteOverviewPeriod> = {
+    day: "today",
+    week: "week",
+    month: "month",
+};
+
+export function toClienteOverviewPeriod(period: ClienteOverviewPeriod | ReportVolumePeriod): ClienteOverviewPeriod {
+    if (period === "day") return "today";
+    return period;
+}
+
+export function getAttendanceVolumeData(period: ClienteOverviewPeriod | ReportVolumePeriod): AttendanceVolumeDatum[] {
+    return attendanceVolumeByPeriod[toClienteOverviewPeriod(period)];
+}
+
+/** @deprecated Use attendanceVolumeByPeriod.week */
+export const dailyVolumeData = attendanceVolumeByPeriod.week;
 
 export const confidenceTrendData = [
     { week: "Sem 1", confidence: 62 },
@@ -459,6 +677,676 @@ export const statusColors: Record<ConversationStatus, "brand" | "success" | "war
     "resolvido-humano": "success",
     abandonado: "gray",
 };
+
+export type TessenClientStatus = "ativo" | "trial" | "inativo";
+
+export interface TessenClientAccount {
+    id: string;
+    name: string;
+    niche: string;
+    plan: string;
+    status: TessenClientStatus;
+    agentName: string;
+    conversationsToday: number;
+    aiResolutionRate: number;
+    createdAt: string;
+}
+
+export const tessenClientAccounts: TessenClientAccount[] = [
+    {
+        id: "saude-total",
+        name: "Clínica Saúde Total",
+        niche: "Clínica médica",
+        plan: "Profissional",
+        status: "ativo",
+        agentName: "Sofia",
+        conversationsToday: 87,
+        aiResolutionRate: 67,
+        createdAt: "12/01/2025",
+    },
+    {
+        id: "estetica-bella",
+        name: "Estética Bella",
+        niche: "Salão e estética",
+        plan: "Profissional",
+        status: "ativo",
+        agentName: "Lia",
+        conversationsToday: 42,
+        aiResolutionRate: 71,
+        createdAt: "03/02/2025",
+    },
+    {
+        id: "dr-silva",
+        name: "Dr. Silva — Consultório",
+        niche: "Autônomo",
+        plan: "Essencial",
+        status: "trial",
+        agentName: "Assistente",
+        conversationsToday: 12,
+        aiResolutionRate: 58,
+        createdAt: "18/04/2025",
+    },
+    {
+        id: "fit-startup",
+        name: "FitApp Suporte",
+        niche: "Startup B2C",
+        plan: "Essencial",
+        status: "ativo",
+        agentName: "Max",
+        conversationsToday: 156,
+        aiResolutionRate: 74,
+        createdAt: "28/11/2024",
+    },
+    {
+        id: "odontoprime",
+        name: "OdontoPrime",
+        niche: "Clínica médica",
+        plan: "Profissional",
+        status: "inativo",
+        agentName: "Ana",
+        conversationsToday: 0,
+        aiResolutionRate: 0,
+        createdAt: "05/09/2024",
+    },
+];
+
+export const tessenClientStatusLabels: Record<TessenClientStatus, string> = {
+    ativo: "Ativo",
+    trial: "Trial",
+    inativo: "Inativo",
+};
+
+export type AppointmentStatus = "confirmado" | "aguardando-confirmacao" | "nao-confirmou" | "cancelado";
+
+export type AppointmentSource = ConversationChannel | "manual";
+
+export interface Appointment {
+    id: string;
+    patientName: string;
+    patientInitials: string;
+    patientAge: number;
+    patientGender: "Feminino" | "Masculino";
+    time: string;
+    date: string;
+    dayLabel: string;
+    service?: string;
+    notes?: string;
+    status: AppointmentStatus;
+    cancellationReason?: string;
+    source: AppointmentSource;
+    followUpSent?: string;
+    followUpResponse?: string;
+    conversationId?: string;
+    hasMessagingChannel: boolean;
+}
+
+export const appointmentStatusLabels: Record<AppointmentStatus, string> = {
+    confirmado: "Confirmado",
+    "aguardando-confirmacao": "Aguardando confirmação",
+    "nao-confirmou": "Cancelado",
+    cancelado: "Cancelado",
+};
+
+export const appointmentStatusColors: Record<AppointmentStatus, "success" | "warning" | "error" | "gray"> = {
+    confirmado: "success",
+    "aguardando-confirmacao": "warning",
+    "nao-confirmou": "error",
+    cancelado: "error",
+};
+
+export const appointments: Appointment[] = [
+    {
+        id: "a1",
+        patientName: "Maria Silva",
+        patientInitials: "MS",
+        patientAge: 34,
+        patientGender: "Feminino",
+        time: "09:00",
+        date: "2026-06-04",
+        dayLabel: "Hoje",
+        service: "Consulta clínica geral",
+        notes: "Primeira consulta — pediu horário da manhã",
+        status: "aguardando-confirmacao",
+        source: "whatsapp",
+        followUpSent: "Ontem, 18:30",
+        followUpResponse: "Sem resposta",
+        conversationId: "1",
+        hasMessagingChannel: true,
+    },
+    {
+        id: "a2",
+        patientName: "João Pereira",
+        patientInitials: "JP",
+        patientAge: 41,
+        patientGender: "Masculino",
+        time: "10:30",
+        date: "2026-06-04",
+        dayLabel: "Hoje",
+        service: "Retorno",
+        status: "confirmado",
+        source: "whatsapp",
+        followUpSent: "Hoje, 08:00",
+        followUpResponse: "Confirmado",
+        conversationId: "2",
+        hasMessagingChannel: true,
+    },
+    {
+        id: "a3",
+        patientName: "Ana Costa",
+        patientInitials: "AC",
+        patientAge: 28,
+        patientGender: "Feminino",
+        time: "14:00",
+        date: "2026-06-04",
+        dayLabel: "Hoje",
+        service: "Avaliação estética",
+        status: "confirmado",
+        source: "telegram",
+        conversationId: "3",
+        hasMessagingChannel: true,
+    },
+    {
+        id: "a4",
+        patientName: "Carlos Mendes",
+        patientInitials: "CM",
+        patientAge: 52,
+        patientGender: "Masculino",
+        time: "15:30",
+        date: "2026-06-04",
+        dayLabel: "Hoje",
+        status: "nao-confirmou",
+        source: "whatsapp",
+        followUpSent: "Hoje, 09:15",
+        hasMessagingChannel: true,
+        conversationId: "4",
+    },
+    {
+        id: "a5",
+        patientName: "Fernanda Lima",
+        patientInitials: "FL",
+        patientAge: 23,
+        patientGender: "Feminino",
+        time: "11:00",
+        date: "2026-06-05",
+        dayLabel: "Qui, 05/06",
+        service: "Consulta",
+        status: "aguardando-confirmacao",
+        source: "webchat",
+        hasMessagingChannel: false,
+        conversationId: "5",
+    },
+    {
+        id: "a6",
+        patientName: "Roberto Alves",
+        patientInitials: "RA",
+        patientAge: 47,
+        patientGender: "Masculino",
+        time: "16:00",
+        date: "2026-06-06",
+        dayLabel: "Sex, 06/06",
+        status: "cancelado",
+        cancellationReason: "Paciente remarcou para outra clínica",
+        source: "manual",
+        hasMessagingChannel: true,
+    },
+    {
+        id: "a7",
+        patientName: "Patrícia Souza",
+        patientInitials: "PS",
+        patientAge: 39,
+        patientGender: "Feminino",
+        time: "09:30",
+        date: "2026-06-09",
+        dayLabel: "Seg, 09/06",
+        service: "Exame de rotina",
+        status: "confirmado",
+        source: "whatsapp",
+        hasMessagingChannel: true,
+    },
+    {
+        id: "a8",
+        patientName: "Lucas Ferreira",
+        patientInitials: "LF",
+        patientAge: 30,
+        patientGender: "Masculino",
+        time: "13:00",
+        date: "2026-06-10",
+        dayLabel: "Ter, 10/06",
+        status: "aguardando-confirmacao",
+        source: "whatsapp",
+        followUpSent: "Hoje, 10:00",
+        hasMessagingChannel: true,
+    },
+];
+
+export const calendarIntegrationOnline = true;
+
+export type ContactStage = "primeiro-contato" | "agendado" | "paciente" | "inativo";
+
+export const contactStageLabels: Record<ContactStage, string> = {
+    "primeiro-contato": "Interessado",
+    agendado: "Agendado",
+    paciente: "Cliente",
+    inativo: "Inativo",
+};
+
+export const contactStageColors: Record<ContactStage, "gray" | "brand" | "success" | "indigo"> = {
+    "primeiro-contato": "gray",
+    agendado: "brand",
+    paciente: "success",
+    inativo: "gray",
+};
+
+export interface ContactActivitySummary {
+    totalConversations: number;
+    totalAppointments: number;
+    lastAppointment?: { date: string; status: string };
+    nextAppointment?: { date: string; status: string };
+}
+
+export interface TessenContact {
+    id: string;
+    fullName: string;
+    phone: string;
+    avatarInitials: string;
+    originChannel: ConversationChannel;
+    preferredChannel: ConversationChannel;
+    stage: ContactStage;
+    firstContactAt: string;
+    lastContactAt: string;
+    lastContactDaysAgo: number;
+    archived: boolean;
+    activity: ContactActivitySummary;
+    conversationId?: string;
+}
+
+/** Estágio comercial — lead que pode contratar a Tessen (visão admin). */
+export type TessenLeadStage = "prospeccao" | "qualificado" | "demo" | "proposta" | "fechado" | "perdido";
+
+export const tessenLeadStageLabels: Record<TessenLeadStage, string> = {
+    prospeccao: "Prospecção",
+    qualificado: "Qualificado",
+    demo: "Demo agendada",
+    proposta: "Proposta enviada",
+    fechado: "Cliente",
+    perdido: "Perdido",
+};
+
+export const tessenLeadStageColors: Record<TessenLeadStage, "gray" | "brand" | "indigo" | "warning" | "success" | "error"> = {
+    prospeccao: "gray",
+    qualificado: "brand",
+    demo: "indigo",
+    proposta: "warning",
+    fechado: "success",
+    perdido: "error",
+};
+
+/** Um contato por empresa — pessoa decisora interessada em contratar a Tessen. */
+export interface TessenLeadContact {
+    id: string;
+    clientName: string;
+    niche: string;
+    contactName: string;
+    contactEmail: string;
+    phone: string;
+    avatarInitials: string;
+    stage: TessenLeadStage;
+    lastContactAt: string;
+    lastContactDaysAgo: number;
+}
+
+export const tessenLeadContacts: TessenLeadContact[] = [
+    {
+        id: "lead-saude-total",
+        clientName: "Clínica Saúde Total",
+        niche: "Clínica médica",
+        contactName: "Patrícia Nogueira",
+        contactEmail: "patricia@clinicasaudetotal.com.br",
+        phone: "+55 48 3322-1100",
+        avatarInitials: "PN",
+        stage: "fechado",
+        lastContactAt: "Hoje",
+        lastContactDaysAgo: 0,
+    },
+    {
+        id: "lead-estetica-bella",
+        clientName: "Estética Bella",
+        niche: "Salão e estética",
+        contactName: "Camila Rocha",
+        contactEmail: "camila@esteticabella.com.br",
+        phone: "+55 11 3456-7890",
+        avatarInitials: "CR",
+        stage: "fechado",
+        lastContactAt: "Ontem",
+        lastContactDaysAgo: 1,
+    },
+    {
+        id: "lead-dr-silva",
+        clientName: "Dr. Silva — Consultório",
+        niche: "Autônomo",
+        contactName: "Dr. Marcelo Silva",
+        contactEmail: "contato@drsilva.med.br",
+        phone: "+55 21 99876-5432",
+        avatarInitials: "MS",
+        stage: "proposta",
+        lastContactAt: "há 3 dias",
+        lastContactDaysAgo: 3,
+    },
+    {
+        id: "lead-fit-startup",
+        clientName: "FitApp Suporte",
+        niche: "Startup B2C",
+        contactName: "Lucas Ferreira",
+        contactEmail: "lucas@fitapp.io",
+        phone: "+55 11 91234-5678",
+        avatarInitials: "LF",
+        stage: "fechado",
+        lastContactAt: "há 5 dias",
+        lastContactDaysAgo: 5,
+    },
+    {
+        id: "lead-horizonte",
+        clientName: "Clínica Horizonte",
+        niche: "Clínica médica",
+        contactName: "Dr. Ricardo Mendes",
+        contactEmail: "ricardo@clinicahorizonte.com.br",
+        phone: "+55 11 98765-4321",
+        avatarInitials: "RM",
+        stage: "demo",
+        lastContactAt: "há 2 dias",
+        lastContactDaysAgo: 2,
+    },
+    {
+        id: "lead-vitalis",
+        clientName: "Vitalis Odontologia",
+        niche: "Clínica médica",
+        contactName: "Fernanda Lima",
+        contactEmail: "fernanda@vitalisodonto.com.br",
+        phone: "+55 31 97654-3210",
+        avatarInitials: "FL",
+        stage: "qualificado",
+        lastContactAt: "há 7 dias",
+        lastContactDaysAgo: 7,
+    },
+    {
+        id: "lead-spa-luna",
+        clientName: "Spa Luna",
+        niche: "Salão e estética",
+        contactName: "Juliana Martins",
+        contactEmail: "juliana@spaluna.com.br",
+        phone: "+55 48 99109-8765",
+        avatarInitials: "JM",
+        stage: "prospeccao",
+        lastContactAt: "há 12 dias",
+        lastContactDaysAgo: 12,
+    },
+    {
+        id: "lead-techclinic",
+        clientName: "TechClinic Labs",
+        niche: "Startup B2C",
+        contactName: "Diego Santos",
+        contactEmail: "diego@techclinic.io",
+        phone: "+55 11 98876-5431",
+        avatarInitials: "DS",
+        stage: "perdido",
+        lastContactAt: "há 45 dias",
+        lastContactDaysAgo: 45,
+    },
+];
+
+export const tessenContactsTotalCount = 124;
+
+export const tessenContacts: TessenContact[] = [
+    {
+        id: "c1",
+        fullName: "Maria Silva",
+        phone: "+55 48 99912-3456",
+        avatarInitials: "MS",
+        originChannel: "whatsapp",
+        preferredChannel: "whatsapp",
+        stage: "agendado",
+        firstContactAt: "12/03/2025",
+        lastContactAt: "Hoje",
+        lastContactDaysAgo: 0,
+        archived: false,
+        conversationId: "1",
+        activity: {
+            totalConversations: 4,
+            totalAppointments: 2,
+            lastAppointment: { date: "28/05/2025", status: "Confirmado" },
+            nextAppointment: { date: "05/06/2025, 09:00", status: "Aguardando confirmação" },
+        },
+    },
+    {
+        id: "c2",
+        fullName: "João Pereira",
+        phone: "+55 48 98876-5432",
+        avatarInitials: "JP",
+        originChannel: "whatsapp",
+        preferredChannel: "whatsapp",
+        stage: "paciente",
+        firstContactAt: "08/01/2025",
+        lastContactAt: "Ontem",
+        lastContactDaysAgo: 1,
+        archived: false,
+        conversationId: "2",
+        activity: {
+            totalConversations: 6,
+            totalAppointments: 3,
+            lastAppointment: { date: "20/05/2025", status: "Compareceu" },
+        },
+    },
+    {
+        id: "c3",
+        fullName: "Ana Costa",
+        phone: "+55 48 99765-4321",
+        avatarInitials: "AC",
+        originChannel: "telegram",
+        preferredChannel: "telegram",
+        stage: "primeiro-contato",
+        firstContactAt: "Hoje",
+        lastContactAt: "Hoje",
+        lastContactDaysAgo: 0,
+        archived: false,
+        conversationId: "3",
+        activity: { totalConversations: 1, totalAppointments: 0 },
+    },
+    {
+        id: "c4",
+        fullName: "Carlos Mendes",
+        phone: "+55 48 99654-3210",
+        avatarInitials: "CM",
+        originChannel: "whatsapp",
+        preferredChannel: "whatsapp",
+        stage: "paciente",
+        firstContactAt: "15/11/2024",
+        lastContactAt: "Hoje",
+        lastContactDaysAgo: 0,
+        archived: false,
+        conversationId: "4",
+        activity: {
+            totalConversations: 12,
+            totalAppointments: 5,
+            lastAppointment: { date: "10/05/2025", status: "Compareceu" },
+            nextAppointment: { date: "12/06/2025, 15:30", status: "Confirmado" },
+        },
+    },
+    {
+        id: "c5",
+        fullName: "Fernanda Lima",
+        phone: "+55 48 99543-2109",
+        avatarInitials: "FL",
+        originChannel: "webchat",
+        preferredChannel: "webchat",
+        stage: "agendado",
+        firstContactAt: "22/04/2025",
+        lastContactAt: "há 5 dias",
+        lastContactDaysAgo: 5,
+        archived: false,
+        conversationId: "5",
+        activity: {
+            totalConversations: 3,
+            totalAppointments: 1,
+            nextAppointment: { date: "06/06/2025, 11:00", status: "Aguardando confirmação" },
+        },
+    },
+    {
+        id: "c6",
+        fullName: "Roberto Alves",
+        phone: "+55 48 99432-1098",
+        avatarInitials: "RA",
+        originChannel: "whatsapp",
+        preferredChannel: "whatsapp",
+        stage: "primeiro-contato",
+        firstContactAt: "18/05/2025",
+        lastContactAt: "há 14 dias",
+        lastContactDaysAgo: 14,
+        archived: false,
+        conversationId: "6",
+        activity: { totalConversations: 2, totalAppointments: 0 },
+    },
+    {
+        id: "c7",
+        fullName: "Patrícia Souza",
+        phone: "+55 48 99321-0987",
+        avatarInitials: "PS",
+        originChannel: "whatsapp",
+        preferredChannel: "whatsapp",
+        stage: "paciente",
+        firstContactAt: "03/02/2025",
+        lastContactAt: "há 3 dias",
+        lastContactDaysAgo: 3,
+        archived: false,
+        activity: {
+            totalConversations: 5,
+            totalAppointments: 2,
+            lastAppointment: { date: "01/06/2025", status: "Compareceu" },
+        },
+    },
+    {
+        id: "c8",
+        fullName: "Lucas Ferreira",
+        phone: "+55 48 99210-9876",
+        avatarInitials: "LF",
+        originChannel: "telegram",
+        preferredChannel: "telegram",
+        stage: "paciente",
+        firstContactAt: "10/10/2024",
+        lastContactAt: "há 2 dias",
+        lastContactDaysAgo: 2,
+        archived: false,
+        activity: {
+            totalConversations: 9,
+            totalAppointments: 4,
+            lastAppointment: { date: "25/05/2025", status: "Compareceu" },
+            nextAppointment: { date: "10/06/2025, 13:00", status: "Confirmado" },
+        },
+    },
+    {
+        id: "c9",
+        fullName: "Juliana Martins",
+        phone: "+55 48 99109-8765",
+        avatarInitials: "JM",
+        originChannel: "whatsapp",
+        preferredChannel: "whatsapp",
+        stage: "agendado",
+        firstContactAt: "14/05/2025",
+        lastContactAt: "há 7 dias",
+        lastContactDaysAgo: 7,
+        archived: false,
+        activity: {
+            totalConversations: 2,
+            totalAppointments: 1,
+            nextAppointment: { date: "08/06/2025, 10:00", status: "Confirmado" },
+        },
+    },
+    {
+        id: "c10",
+        fullName: "Ricardo Nunes",
+        phone: "+55 48 99098-7654",
+        avatarInitials: "RN",
+        originChannel: "webchat",
+        preferredChannel: "webchat",
+        stage: "inativo",
+        firstContactAt: "20/05/2025",
+        lastContactAt: "há 10 dias",
+        lastContactDaysAgo: 10,
+        archived: false,
+        activity: { totalConversations: 1, totalAppointments: 0 },
+    },
+    {
+        id: "c11",
+        fullName: "Camila Rocha",
+        phone: "+55 48 98987-6543",
+        avatarInitials: "CR",
+        originChannel: "whatsapp",
+        preferredChannel: "whatsapp",
+        stage: "paciente",
+        firstContactAt: "28/12/2024",
+        lastContactAt: "há 4 dias",
+        lastContactDaysAgo: 4,
+        archived: false,
+        activity: {
+            totalConversations: 7,
+            totalAppointments: 2,
+            lastAppointment: { date: "15/05/2025", status: "Compareceu" },
+        },
+    },
+    {
+        id: "c12",
+        fullName: "Diego Santos",
+        phone: "+55 48 98876-5431",
+        avatarInitials: "DS",
+        originChannel: "whatsapp",
+        preferredChannel: "whatsapp",
+        stage: "paciente",
+        firstContactAt: "05/08/2024",
+        lastContactAt: "há 1 dia",
+        lastContactDaysAgo: 1,
+        archived: false,
+        activity: {
+            totalConversations: 15,
+            totalAppointments: 6,
+            lastAppointment: { date: "30/05/2025", status: "Compareceu" },
+            nextAppointment: { date: "11/06/2025, 16:00", status: "Confirmado" },
+        },
+    },
+    {
+        id: "c-archived",
+        fullName: "Helena Vieira",
+        phone: "+55 48 97765-4321",
+        avatarInitials: "HV",
+        originChannel: "whatsapp",
+        preferredChannel: "whatsapp",
+        stage: "paciente",
+        firstContactAt: "02/01/2024",
+        lastContactAt: "há 90 dias",
+        lastContactDaysAgo: 90,
+        archived: true,
+        activity: {
+            totalConversations: 4,
+            totalAppointments: 2,
+            lastAppointment: { date: "10/01/2025", status: "Compareceu" },
+        },
+    },
+];
+
+export const contactChannelItems: { id: ConversationChannel; label: string }[] = [
+    { id: "whatsapp", label: "WhatsApp" },
+    { id: "telegram", label: "Telegram" },
+    { id: "webchat", label: "Webchat" },
+];
+
+export function formatContactLastContact(days: number): string {
+    if (days === 0) return "Hoje";
+    if (days === 1) return "Ontem";
+    return `há ${days} ${days === 1 ? "dia" : "dias"}`;
+}
+
+export function findContactByPhone(contacts: TessenContact[], phone: string): TessenContact | undefined {
+    const normalized = phone.replace(/\D/g, "");
+    return contacts.find((c) => c.phone.replace(/\D/g, "") === normalized);
+}
 
 export const tessenAccounts: NavAccountType[] = [
     {

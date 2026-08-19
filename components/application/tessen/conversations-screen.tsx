@@ -7,9 +7,14 @@ import {
     getMessagesForConversation,
 } from "@/components/application/tessen/conversation-inbox-panels";
 import { conversations } from "@/components/application/tessen/tessen-data";
+import type { TessenUserType } from "@/components/application/tessen/tessen-nav";
 import { TessenShell } from "@/components/application/tessen/tessen-shell";
 
-export const TessenConversationsScreen = () => {
+interface TessenConversationsScreenProps {
+    userType?: TessenUserType;
+}
+
+export const TessenConversationsScreen = ({ userType = "cliente" }: TessenConversationsScreenProps) => {
     const [selectedId, setSelectedId] = useState(conversations[0]?.id ?? "");
 
     const selectedConversation = useMemo(
@@ -29,6 +34,7 @@ export const TessenConversationsScreen = () => {
     return (
         <TessenShell
             activeUrl="/conversas"
+            userType={userType}
             className="h-dvh max-h-dvh overflow-hidden"
             mainClassName="flex h-full min-h-0 flex-1 flex-row overflow-hidden"
         >

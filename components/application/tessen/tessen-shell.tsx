@@ -1,9 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Toaster } from "@/components/application/toast/toast";
 import { TessenSidebar } from "@/components/application/tessen/tessen-sidebar";
 import { TrendBadge } from "@/components/application/tessen/tessen-badges";
-import { tessenFooterItems, tessenNavItems } from "@/components/application/tessen/tessen-nav";
+import { getTessenNavItems, tessenFooterItems, type TessenUserType } from "@/components/application/tessen/tessen-nav";
 import { tessenTypography } from "@/components/application/tessen/tessen-typography";
 import { cx } from "@/utils/cx";
 
@@ -14,13 +15,15 @@ interface TessenShellProps {
     children: ReactNode;
     className?: string;
     mainClassName?: string;
+    userType?: TessenUserType;
 }
 
-export const TessenShell = ({ activeUrl, children, className, mainClassName }: TessenShellProps) => {
+export const TessenShell = ({ activeUrl, children, className, mainClassName, userType = "cliente" }: TessenShellProps) => {
     return (
         <div className={cx("flex min-h-screen w-full bg-secondary", className)}>
-            <TessenSidebar activeUrl={activeUrl} items={tessenNavItems} footerItems={tessenFooterItems} />
+            <TessenSidebar activeUrl={activeUrl} items={getTessenNavItems(userType)} footerItems={tessenFooterItems} />
             <main className={cx("flex min-h-screen flex-1 flex-col overflow-auto", mainClassName)}>{children}</main>
+            <Toaster />
         </div>
     );
 };
@@ -33,10 +36,10 @@ interface PageHeaderProps {
 
 export const TessenPageHeader = ({ title, description, actions }: PageHeaderProps) => {
     return (
-        <div className="flex flex-col gap-4 border-b border-secondary bg-primary px-4 py-5 md:flex-row md:items-center md:justify-between md:px-6 md:py-6">
+        <div className="flex flex-col gap-4 border-b border-secondary px-4 py-5 md:flex-row md:items-center md:justify-between md:px-6 md:py-6">
             <div>
                 <h1 className={tessenTypography.pageTitle}>{title}</h1>
-                {description && <p className="mt-1 text-sm text-tertiary">{description}</p>}
+                {description && <p className="mt-1 text-sm text-secondary">{description}</p>}
             </div>
             {actions && <div className="flex shrink-0 items-center gap-3">{actions}</div>}
         </div>
@@ -56,6 +59,16 @@ interface MetricCardProps {
     /** Meta com barra de progresso (DAT-001). */
     goalProgress?: { current: number; goal: number };
 }
+
+/** Card de métrica simples — título + valor, sem tendência ou subtítulo (PRD Visão Geral v2). */
+export const SimpleMetricCard = ({ label, value }: { label: string; value: string | number }) => {
+    return (
+        <div className="flex flex-col gap-2 rounded-xl bg-primary p-5 shadow-xs ring-1 ring-secondary ring-inset">
+            <p className="text-sm font-normal text-tertiary">{label}</p>
+            <p className={tessenTypography.metricValue}>{value}</p>
+        </div>
+    );
+};
 
 export const MetricCard = ({
     label,
